@@ -34,7 +34,7 @@ def detect_closed_shapes(image_path):
             locations.append(contours[i])
 
     print("Generating 00_default.txt...")
-    outputDict = make_file("00_default.txt", len(locations))
+    outputDict = make_file("output/00_default.txt", len(locations))
     colors = list(outputDict.values())
     locationNames = list(outputDict.keys())
 
@@ -142,6 +142,14 @@ def detect_closed_shapes(image_path):
     
 
 def make_file(output_directory, amount):
+    existing = input("Enter the directory to your current 00_default.txt file, to exclude already existing names and colors\n(Leave blank if it does not exist):\n")
+    existingDict = dict()
+    if(existing != ""):
+        with open(existing, 'r') as file:
+            for line in file:
+                info = re.sub(r"[\s]","",line).split("=")
+                existingDict[info[0]] = info[1]
+            
     Path("output").mkdir(parents=True, exist_ok=True)
     with open(output_directory, 'w') as file:
         file.write("")
@@ -160,7 +168,7 @@ def make_file(output_directory, amount):
         for item in location:
             if(count>amount):
                 break
-            if("".join(item) not in exclude):
+            if("".join(item) not in exclude and "".join(item) not in list(existingDict.keys())):
                 locations.append("".join(item))
                 count = count+1
     locations = locations[1:]
@@ -169,7 +177,7 @@ def make_file(output_directory, amount):
     for location in locations:
         print("Progress:",str(round((count/amount)*100,2)) + "%","/","100%")
         color = "#{:06X}".format(random.randint(0, 0xFFFFFF))
-        while color in outputDict.values() and color not in exclude:
+        while color in list(outputDict.values()) and color not in exclude and color not in list(existingDict.values()):
             color = "#{:06X}".format(random.randint(0, 0xFFFFFF))
         outputDict[location] = color
         count = count+1
