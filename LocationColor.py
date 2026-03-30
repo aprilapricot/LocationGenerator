@@ -34,7 +34,7 @@ def detect_closed_shapes(image_path):
             locations.append(contours[i])
 
     print("Generating 00_default.txt...")
-    outputDict = make_file("output/00_default.txt", len(locations))
+    outputDict = make_file(len(locations))
     colors = list(outputDict.values())
     locationNames = list(outputDict.keys())
 
@@ -92,12 +92,9 @@ def detect_closed_shapes(image_path):
     gray = cv2.cvtColor(out_img, cv2.COLOR_BGR2GRAY)
     _, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV)
     print("Generating Inverted Black/White Binary...")
-    #cv2.imshow("window",mask)
-    #cv2.waitKey(0)
-    
+
     contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     print("Finding Contours of Locations Below 100px Area...")
-    #cv2.destroyAllWindows()
 
     print("Filling Empty Pixels with Nearby Location Colors...")
     count = 0
@@ -135,13 +132,11 @@ def detect_closed_shapes(image_path):
     
 
     print("Complete, Exporting Image to locations.png")       
-    #cv2.imshow("window",out_img)
-    #cv2.waitKey(0)
     cv2.imwrite('output/locations.png', out_img)
     cv2.destroyAllWindows()
     
 
-def make_file(output_directory, amount):
+def make_file(amount):
     existing = input("Enter the directory to your current 00_default.txt file, to exclude already existing names and colors\n(Leave blank if it does not exist):\n")
     existingDict = dict()
     if(existing != ""):
@@ -151,8 +146,6 @@ def make_file(output_directory, amount):
                 existingDict[info[0]] = info[1]
             
     Path("output").mkdir(parents=True, exist_ok=True)
-    with open(output_directory, 'w') as file:
-        file.write("")
     outputDict = dict()
     locations = []
     size = math.ceil(math.log(amount)/math.log(26))
@@ -187,7 +180,7 @@ def make_file(output_directory, amount):
     outstr = re.sub(r"\,","\n",outstr)
     outstr = re.sub(r"\n\s","\n",outstr)
     
-    with open("output/"+output_directory, 'w') as f:
+    with open("output/00_default.txt", 'w') as f:
         f.write(outstr)
     return outputDict
 
