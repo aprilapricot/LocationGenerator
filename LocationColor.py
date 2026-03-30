@@ -18,7 +18,6 @@ def detect_closed_shapes(image_path):
     print("Creating greyscale...")
     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)
     print("Generating Black/White Binary...")
-    cv2.imwrite('thresh.png', thresh)
     kernel = np.ones((3, 3), np.uint8)
     thresh = cv2.erode(thresh, kernel, iterations=1)
     print("Thickening Lnies...")
