@@ -1,4 +1,4 @@
 *.png
 *.zip
-/dist
-/build
+dist
+build
