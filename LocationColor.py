@@ -104,6 +104,7 @@ def detect_closed_shapes(image_path):
     )
     for c in contours:
         count += 1
+        continue
         print("Progress:",str(round((count/len(contours))*100,2)) + "%","/","100%")
         for b in c:
             flag = False
@@ -139,14 +140,14 @@ def detect_closed_shapes(image_path):
         nearestOceanColor = out_img[tuple(coords[np.argmin(distances)])[1],tuple(coords[np.argmin(distances)])[0]]
 
         kernel = np.ones((2, 2), np.uint8)
-        mask_c1 = cv2.dilate(cv2.inRange(out_img, harbourColor, harbourColor),kernel)
-        mask_c2 = cv2.dilate(cv2.inRange(out_img, nearestOceanColor, nearestOceanColor),kernel)
+        harbour = cv2.inRange(out_img, harbourColor, harbourColor)
+        ocean = cv2.inRange(out_img, nearestOceanColor, nearestOceanColor)
 
-        intersection = cv2.bitwise_and(mask_c1, mask_c2)
-        intersection = cv2.bitwise_and(intersection, mask_c2)
+        intersection = cv2.bitwise_and(cv2.dilate(harbour,kernel), cv2.dilate(ocean,kernel))
+        intersection = cv2.bitwise_and(intersection, ocean)
         intersection_points = np.where(intersection == 255)
         try:
-            portInfo.append([harbourColor,nearestOceanColor,intersection_points[1][math.floor(len(intersection_points[1])/2)], (int(img.shape[0]) - int(intersection_points[0][math.floor(len(intersection_points[0])/2)]))])
+            portInfo.append([harbourColor,nearestOceanColor,intersection_points[1][math.floor(len(intersection_points[1])/2)], (int(img.shape[0]) - int(intersection_points[0][math.floor(len(intersection_points[1])/2)]))])
         except:
             print("No adjacent ocean found...")
             continue
