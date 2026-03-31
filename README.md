@@ -16,7 +16,7 @@
 - A single red (255,0,0) pixel within a location defines it as a wasteland
 - A single green (0,255,0)  pixel within a location defines it as a harbour
 - A single blue (0,0,255)  pixel within a location defines it as an ocean
-- **For now, you will still have to define ports in ports.csv manually. You must define at least 1 port for the game to launch.**
+- Ports will automatically be generated between neighboring locations marked as harbour locations and ocean locations
 
 ### Files that are generated from this information include:
 - 00_default.txt
