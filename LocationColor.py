@@ -104,7 +104,6 @@ def detect_closed_shapes(image_path):
     )
     for c in contours:
         count += 1
-        continue
         print("Progress:",str(round((count/len(contours))*100,2)) + "%","/","100%")
         for b in c:
             flag = False
