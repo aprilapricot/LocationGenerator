@@ -106,7 +106,7 @@ def detect_closed_shapes(image_path):
             for a in b:
                 target_col, target_row = a
                 pxl = out_img[target_row,target_col]
-                black = [0,0,0]
+                black = [0,0,0] 
                 if(np.all(pxl == black)):
                     distance_type = cv2.DIST_L1
                     mask_size = 5
