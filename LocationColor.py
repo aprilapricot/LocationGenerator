@@ -76,7 +76,7 @@ def detect_closed_shapes(image_path):
         
         cv2.drawContours(out_img, location, -1, color, 5)
         cv2.fillPoly(out_img, pts=[location], color=color)
-    
+
     print("Generating location_templates.txt...")
     location_templates(locationNames, oceans, harbours, wastelands)
     print("Generating  08_institutions.txt...")
@@ -88,16 +88,20 @@ def detect_closed_shapes(image_path):
     print("Generating default.map...")
     default(oceans, wastelands)
 
-    print("Converting Output to Greyscale...")
     gray = cv2.cvtColor(out_img, cv2.COLOR_BGR2GRAY)
     _, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV)
-    print("Generating Inverted Black/White Binary...")
 
     contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     print("Finding Contours of Locations Below 100px Area...")
 
     print("Filling Empty Pixels with Nearby Location Colors...")
     count = 0
+    dists, labels = cv2.distanceTransformWithLabels(
+        mask, 
+        cv2.DIST_L1, 
+        5, 
+        labelType=cv2.DIST_LABEL_PIXEL
+    )
     for c in contours:
         count += 1
         print("Progress:",str(round((count/len(contours))*100,2)) + "%","/","100%")
@@ -108,15 +112,6 @@ def detect_closed_shapes(image_path):
                 pxl = out_img[target_row,target_col]
                 black = [0,0,0]
                 if(np.all(pxl == black)):
-                    distance_type = cv2.DIST_L1
-                    mask_size = 5
-                    dists, labels = cv2.distanceTransformWithLabels(
-                        mask, 
-                        distance_type, 
-                        mask_size, 
-                        labelType=cv2.DIST_LABEL_PIXEL
-                    )
-                    
                     target_label = labels[target_row, target_col]
                     match_rows, match_cols = np.where(labels == target_label)
                     color = ( int (out_img[match_rows[0],match_cols[0]] [ 0 ]), int (out_img[match_rows[0],match_cols[0]] [ 1 ]), int (out_img[match_rows[0],match_cols[0]] [ 2 ])) 
@@ -128,8 +123,34 @@ def detect_closed_shapes(image_path):
             if(flag == True):
                 flag = False
                 break;
+    print("Generating ports.csv...")
+    blue = [255,0,0]
+    blue_mask = cv2.inRange(img, np.array(blue), np.array(blue))
+    coords = cv2.findNonZero(blue_mask).reshape(-1, 2)
+    portInfo = list()
+    count = 0
+    for point in harbourCoords:
+        count += 1
+        print("Progress:",str(round((count/len(harbourCoords))*100,2)) + "%","/","100%")
+        target_row,target_col = tuple(point)
+        distances = np.linalg.norm(coords - tuple(point), axis=1)
+        
+        harbourColor = out_img[(int(target_col), int(target_row))]
+        nearestOceanColor = out_img[tuple(coords[np.argmin(distances)])[1],tuple(coords[np.argmin(distances)])[0]]
 
-    
+        kernel = np.ones((2, 2), np.uint8)
+        mask_c1 = cv2.dilate(cv2.inRange(out_img, harbourColor, harbourColor),kernel)
+        mask_c2 = cv2.dilate(cv2.inRange(out_img, nearestOceanColor, nearestOceanColor),kernel)
+
+        intersection = cv2.bitwise_and(mask_c1, mask_c2)
+        intersection = cv2.bitwise_and(intersection, mask_c2)
+        intersection_points = np.where(intersection == 255)
+        try:
+            portInfo.append([harbourColor,nearestOceanColor,intersection_points[1][math.floor(len(intersection_points[1])/2)], (int(img.shape[0]) - int(intersection_points[0][math.floor(len(intersection_points[0])/2)]))])
+        except:
+            print("No adjacent ocean found...")
+            continue
+    ports(outputDict,portInfo)
 
     print("Complete, Exporting Image to locations.png")       
     cv2.imwrite('output/locations.png', out_img)
@@ -211,6 +232,16 @@ def pops(locations, oceans, wastelands):
             if(location not in oceans and location not in wastelands):
                 file.write(location + " = {   define_pop = { type = nobles size = 0.012 culture = danube_bavarian religion = catholic }   define_pop = { type = clergy size = 0.057 culture = danube_bavarian religion = catholic }   define_pop = { type = burghers size = 1.776 culture = danube_bavarian religion = catholic }   define_pop = { type = peasants size = 35.598 culture = danube_bavarian religion = catholic }  }\n")
         file.write("}")
+
+def ports(locations, ports):
+    with open("output/ports.csv", 'w') as file:
+        for port in ports:
+            color = f'#{port[0][2]:02X}{port[0][1]:02X}{port[0][0]:02X}'
+            color2 = f'#{port[1][2]:02X}{port[1][1]:02X}{port[1][0]:02X}'
+            harbourName = list(locations.keys())[list(locations.values()).index(color)]
+            oceanName = list(locations.keys())[list(locations.values()).index(color2)]
+            file.write(harbourName + ";" + oceanName + ";" + str(int(port[2])) + ";" + str(int(port[3])) + ";x\n")
+        
 
 def definitions(locations, oceans, wastelands):
     with open("output/definitions.txt", 'w') as file:
