@@ -8,7 +8,7 @@ import itertools
 import math
 from pathlib import Path
 
-def detect_closed_shapes(image_path):
+def LocationColor(image_path, erode_w, contours_w):
     print("Opening image...")
     img = cv2.imread(image_path)
     if img is None:
@@ -18,7 +18,7 @@ def detect_closed_shapes(image_path):
     print("Creating greyscale...")
     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)
     print("Generating Black/White Binary...")
-    kernel = np.ones((3, 3), np.uint8)
+    kernel = np.ones((erode_w, erode_w), np.uint8)
     thresh = cv2.erode(thresh, kernel, iterations=1)
     print("Thickening Lines...")
     
@@ -28,10 +28,11 @@ def detect_closed_shapes(image_path):
 
     locations = list()
     
-    print("Eliminating Locations under 100px Area (Usually Artifacts, or result of messy lines)...")
+    print("Eliminating Locations under 5px Area (Usually Artifacts, or result of messy lines)...")
     for i in range(0,len(contours)):
-        if(cv2.contourArea(contours[i]) > 10):
+        if(cv2.contourArea(contours[i]) > 5):
             locations.append(contours[i])
+
 
     print("Generating 00_default.txt...")
     outputDict = make_file(len(locations))
@@ -73,9 +74,12 @@ def detect_closed_shapes(image_path):
         
         color = webcolors.hex_to_rgb(colors[i])
         color = color[2],color[1],color[0]
-        
-        cv2.drawContours(out_img, location, -1, color, 2)
-        cv2.fillPoly(out_img, pts=[location], color=color)
+        if(cv2.contourArea(location) > 100):
+            cv2.drawContours(out_img, location, -1, color, contours_w)
+            cv2.fillPoly(out_img, pts=[location], color=color)
+        elif(cv2.contourArea(location) <= 100):
+            cv2.drawContours(out_img, location, -1, color, 1)
+            cv2.fillPoly(out_img, pts=[location], color=color)
 
     print("Generating location_templates.txt...")
     location_templates(locationNames, oceans, harbours, wastelands)
@@ -87,7 +91,6 @@ def detect_closed_shapes(image_path):
     definitions(locationNames, oceans, wastelands)
     print("Generating default.map...")
     default(oceans, wastelands)
-
     print("Locating uncolored pixels...")
    
     gray = cv2.cvtColor(out_img, cv2.COLOR_BGR2GRAY)
@@ -97,11 +100,10 @@ def detect_closed_shapes(image_path):
     print("Filling Empty Pixels with Nearby Location Colors...")
     count = 0
     max_y,max_x,_ = img.shape
-    
 
     for x in range(0,max_x, 50):
         print("Progress:",str(round((count/(((max_y/50) * (max_x/50))))*100,2)) + "%","/","100%")
-        for y in range(0,max_x, 50):
+        for y in range(0,max_y, 50):
             count += 1
             try:
                 roi = out_img[max(y,0): min(y+50, max_y),max(x,0): min(x+50, max_x)]
@@ -357,4 +359,6 @@ def default(oceans, wastelands):
         file.write("}\n")
 
 filename = input("Input PNG File Path:\n")
-detect_closed_shapes(filename)
+erode_w = int(input("How much should your lines be expanded by? Please enter an integer.\n - Helps with closing open shapes\n - 2 is recommended\n"))
+contour_w = int(input("How thick should shape contours be? Please enter an integer.\n - Thicker contours may lose defintion\n - 2 is recommended\n"))
+LocationColor(filename,erode_w,contour_w)
