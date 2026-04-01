@@ -26,3 +26,4 @@
 - definitions.txt
 - location_templates.txt
 - locations.png
+- ports.csv
