@@ -20,7 +20,7 @@ def detect_closed_shapes(image_path):
     print("Generating Black/White Binary...")
     kernel = np.ones((3, 3), np.uint8)
     thresh = cv2.erode(thresh, kernel, iterations=1)
-    print("Thickening Lnies...")
+    print("Thickening Lines...")
     
     contours, hierarchy = cv2.findContours(thresh, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
     print("Finding Location Contours...")
@@ -30,7 +30,7 @@ def detect_closed_shapes(image_path):
     
     print("Eliminating Locations under 100px Area (Usually Artifacts, or result of messy lines)...")
     for i in range(0,len(contours)):
-        if(cv2.contourArea(contours[i]) > 100):
+        if(cv2.contourArea(contours[i]) > 10):
             locations.append(contours[i])
 
     print("Generating 00_default.txt...")
@@ -74,12 +74,12 @@ def detect_closed_shapes(image_path):
         color = webcolors.hex_to_rgb(colors[i])
         color = color[2],color[1],color[0]
         
-        cv2.drawContours(out_img, location, -1, color, 5)
+        cv2.drawContours(out_img, location, -1, color, 2)
         cv2.fillPoly(out_img, pts=[location], color=color)
 
     print("Generating location_templates.txt...")
     location_templates(locationNames, oceans, harbours, wastelands)
-    print("Generating  08_institutions.txt...")
+    print("Generating 08_institutions.txt...")
     institutions(locationNames, oceans, wastelands)
     print("Generating 06_pops.txt...")
     pops(locationNames, oceans, wastelands)
@@ -88,72 +88,109 @@ def detect_closed_shapes(image_path):
     print("Generating default.map...")
     default(oceans, wastelands)
 
+    print("Locating uncolored pixels...")
+   
     gray = cv2.cvtColor(out_img, cv2.COLOR_BGR2GRAY)
-    _, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV)
-
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    print("Finding Contours of Locations Below 100px Area...")
+    _, black_mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV)
+    contours, hierarchy = cv2.findContours(black_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
     print("Filling Empty Pixels with Nearby Location Colors...")
     count = 0
-    dists, labels = cv2.distanceTransformWithLabels(
-        mask, 
-        cv2.DIST_L1, 
-        5, 
-        labelType=cv2.DIST_LABEL_PIXEL
-    )
-    for c in contours:
+    max_y,max_x,_ = img.shape
+    
+
+    for x in range(0,max_x, 50):
+        print("Progress:",str(round((count/(((max_y/50) * (max_x/50))))*100,2)) + "%","/","100%")
+        for y in range(0,max_x, 50):
+            count += 1
+            try:
+                roi = out_img[max(y,0): min(y+50, max_y),max(x,0): min(x+50, max_x)]
+                #cv2.imshow("window",roi)
+                #cv2.waitKey(0)
+                
+                gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+                _, white_mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)
+                _, black_mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV)
+                black_coords = cv2.findNonZero(black_mask).reshape(-1, 2)
+                white_coords = cv2.findNonZero(white_mask).reshape(-1, 2)
+                
+
+                for point in black_coords:
+                    target_row,target_col = tuple(point)
+                    distances = np.argmin(np.linalg.norm(white_coords - tuple(point), axis=1))
+                    result = tuple(white_coords[distances])
+                    nearestColor = roi[result[1],result[0]]
+                    roi[(int(target_col), int(target_row))] = nearestColor
+                    
+                out_img[max(y,0): min(y+50, max_y),max(x,0): min(x+50, max_x)] = roi
+            except:
+                continue
+    
+    print("Exporting Image to locations.png")       
+    cv2.imwrite('output/locations.png', out_img)
+
+    """for c in contours:
         count += 1
         print("Progress:",str(round((count/len(contours))*100,2)) + "%","/","100%")
-        for b in c:
-            flag = False
-            for a in b:
-                target_col, target_row = a
-                pxl = out_img[target_row,target_col]
-                black = [0,0,0] 
-                if(np.all(pxl == black)):
-                    target_label = labels[target_row, target_col]
-                    match_rows, match_cols = np.where(labels == target_label)
-                    color = ( int (out_img[match_rows[0],match_cols[0]] [ 0 ]), int (out_img[match_rows[0],match_cols[0]] [ 1 ]), int (out_img[match_rows[0],match_cols[0]] [ 2 ])) 
-                    cv2.drawContours(out_img, c, -1, color, 5)
-                    cv2.drawContours(out_img, c, -1, color, -1)
-                    flag = True
-                    break;
-
-            if(flag == True):
-                flag = False
-                break;
-    print("Generating ports.csv...")
-    blue = [255,0,0]
-    blue_mask = cv2.inRange(img, np.array(blue), np.array(blue))
-    coords = cv2.findNonZero(blue_mask).reshape(-1, 2)
-    portInfo = list()
-    count = 0
-    for point in harbourCoords:
-        count += 1
-        print("Progress:",str(round((count/len(harbourCoords))*100,2)) + "%","/","100%")
-        target_row,target_col = tuple(point)
-        distances = np.linalg.norm(coords - tuple(point), axis=1)
-        
-        harbourColor = out_img[(int(target_col), int(target_row))]
-        nearestOceanColor = out_img[tuple(coords[np.argmin(distances)])[1],tuple(coords[np.argmin(distances)])[0]]
-
-        kernel = np.ones((2, 2), np.uint8)
-        harbour = cv2.inRange(out_img, harbourColor, harbourColor)
-        ocean = cv2.inRange(out_img, nearestOceanColor, nearestOceanColor)
-
-        intersection = cv2.bitwise_and(cv2.dilate(harbour,kernel), cv2.dilate(ocean,kernel))
-        intersection = cv2.bitwise_and(intersection, ocean)
-        intersection_points = np.where(intersection == 255)
         try:
-            portInfo.append([harbourColor,nearestOceanColor,intersection_points[1][math.floor(len(intersection_points[1])/2)], (int(img.shape[0]) - int(intersection_points[0][math.floor(len(intersection_points[1])/2)]))])
-        except:
-            print("No adjacent ocean found...")
-            continue
-    ports(outputDict,portInfo)
+            x,y,w,h = cv2.boundingRect(c)
+            x,y,w,h = x-10, y-10, w+20,h+20
+            
+            roi = out_img[max(y,0): min(y+h, max_y),max(x,0): min(x+w, max_x)]
+            
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            _, white_mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)
+            _, black_mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV)
+            black_coords = cv2.findNonZero(black_mask).reshape(-1, 2)
+            white_coords = cv2.findNonZero(white_mask).reshape(-1, 2)
+            
 
-    print("Complete, Exporting Image to locations.png")       
-    cv2.imwrite('output/locations.png', out_img)
+            for point in black_coords:
+                target_row,target_col = tuple(point)
+                distances = np.argmin(np.linalg.norm(white_coords - tuple(point), axis=1))
+                result = tuple(white_coords[distances])
+                nearestColor = roi[result[1],result[0]]
+                roi[(int(target_col), int(target_row))] = nearestColor
+                
+            out_img[max(y,0): min(y+h, max_y),max(x,0): min(x+w, max_x)] = roi
+        except:
+            print("No pixels found...")"""
+            
+    
+    print("Generating ports.csv...")
+    try:
+        blue = [255,0,0]
+        blue_mask = cv2.inRange(img, np.array(blue), np.array(blue))
+        coords = cv2.findNonZero(blue_mask).reshape(-1, 2)
+        portInfo = list()
+        count = 0
+
+        for point in harbourCoords:
+            count += 1
+            print("Progress:",str(round((count/len(harbourCoords))*100,2)) + "%","/","100%")
+            target_row,target_col = tuple(point)
+            distances = np.linalg.norm(coords - tuple(point), axis=1)
+            
+            harbourColor = out_img[(int(target_col), int(target_row))]
+            nearestOceanColor = out_img[tuple(coords[np.argmin(distances)])[1],tuple(coords[np.argmin(distances)])[0]]
+
+            kernel = np.ones((2, 2), np.uint8)
+            harbour = cv2.inRange(out_img, harbourColor, harbourColor)
+            ocean = cv2.inRange(out_img, nearestOceanColor, nearestOceanColor)
+
+            intersection = cv2.bitwise_and(cv2.dilate(harbour,kernel), cv2.dilate(ocean,kernel))
+            intersection = cv2.bitwise_and(intersection, ocean)
+            intersection_points = np.where(intersection == 255)
+            try:
+                portInfo.append([harbourColor,nearestOceanColor,intersection_points[1][math.floor(len(intersection_points[1])/2)], (int(img.shape[0]) - int(intersection_points[0][math.floor(len(intersection_points[1])/2)]))])
+            except:
+                print("No adjacent ocean found...")
+                continue
+        ports(outputDict,portInfo)
+    except:
+        print("No harbours were defined!")
+
+    
     cv2.destroyAllWindows()
     
 
