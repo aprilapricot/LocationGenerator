@@ -28,9 +28,9 @@ def LocationColor(image_path, erode_w, contours_w):
 
     locations = list()
     
-    print("Eliminating Locations under 5px Area (Usually Artifacts, or result of messy lines)...")
+    print("Eliminating Locations under 25px Area (Usually Artifacts, or result of messy lines)...")
     for i in range(0,len(contours)):
-        if(cv2.contourArea(contours[i]) > 5):
+        if(cv2.contourArea(contours[i]) > 25):
             locations.append(contours[i])
 
 
