@@ -8,8 +8,7 @@
 
 ### Notes
 - Small gaps will be closed automatically
-- Any area under 100px will be merged into nearby locations, this is usually the result of artifacts or poor linework on the "spiderweb"
-    - EUV will crash if a location under 100px is defined
+- Any area under 5px will be merged into nearby locations, this is usually the result of artifacts or poor linework on the "spiderweb"
 - Locations have a max area size that will cause EUV to launch forever, please segment large background areas if they exist
 
 ### The Input PNG file should contain single pixel wide black borders for locations.
